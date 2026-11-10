@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080008">
+<title>For You ❤️</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #080008; }
+  canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="heart"></canvas>
+<script>
+(() => {
+  const canvas = document.getElementById("heart");
+  const ctx = canvas.getContext("2d");
+  const words = [
+    "I love you", "Seni seviyorum", "Te amo", "Je t'aime",
+    "Ich liebe dich", "Ti amo", "Eu te amo", "Я тебя люблю",
+    "사랑해", "愛してる", "我爱你", "Σ' αγαπώ",
+    "Ik hou van jou", "Jag älskar dig", "Kocham cię",
+    "ฉันรักเธอ", "Anh yêu em", "Aku cinta kamu"
+  ];
+
+  let W = 0, H = 0, dpr = 1, rows = [], start = 0;
+
+  function insideHeart(x, y) {
+    const a = x*x + y*y - 1;
+    return a*a*a - x*x*y*y*y <= 0;
+  }
+
+  function makeRows() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const heartW = Math.min(W * 0.92, 560);
+    const heartH = Math.min(H * 0.56, 650);
+    const rowCount = Math.max(23, Math.min(35, Math.floor(heartH / 17)));
+    const fontSize = Math.max(8, Math.min(14, W * 0.034));
+    rows = [];
+    let wordIndex = 0;
+
+    for (let r = 0; r < rowCount; r++) {
+      const yNorm = 1.25 - (2.5 * r / (rowCount - 1));
+      const xs = [];
+      for (let i = 0; i <= 600; i++) {
+        const xNorm = -1.4 + (2.8 * i / 600);
+        if (insideHeart(xNorm, yNorm)) xs.push(xNorm);
+      }
+      if (!xs.length) continue;
+
+      // Split the very top rows into separate lobes where the heart has a gap.
+      const groups = [];
+      let group = [xs[0]];
+      for (let i = 1; i < xs.length; i++) {
+        const previousIndex = Math.round((xs[i-1] + 1.4) / 2.8 * 600);
+        const currentIndex = Math.round((xs[i] + 1.4) / 2.8 * 600);
+        if (currentIndex - previousIndex > 1) {
+          groups.push(group);
+          group = [];
+        }
+        group.push(xs[i]);
+      }
+      groups.push(group);
+
+      groups.forEach(g => {
+        const left = g[0], right = g[g.length - 1];
+        const centerX = W/2 + ((left + right)/2) * (heartW/2.8);
+        const maxWidth = Math.max(10, (right-left) * (heartW/2.8));
+        const font = `700 ${fontSize}px Arial, sans-serif`;
+        ctx.font = font;
+
+        let line = "";
+        while (true) {
+          const phrase = words[wordIndex % words.length];
+          const candidate = line ? line + "  •  " + phrase : phrase;
+          if (ctx.measureText(candidate).width > maxWidth) break;
+          line = candidate;
+          wordIndex++;
+          if (line.length > 500) break;
+        }
+        if (!line) {
+          line = words[wordIndex++ % words.length];
+          let shortLine = line;
+          while (ctx.measureText(shortLine).width > maxWidth && shortLine.length > 2) {
+            shortLine = shortLine.slice(0, -1);
+          }
+          line = shortLine;
+        }
+
+        rows.push({
+          text: line,
+          x: centerX,
+          y: H/2 + yNorm * (heartH/2.5),
+          font,
+          delay: r * 55 + groups.indexOf(g) * 90
+        });
+      });
+    }
+    start = performance.now();
+  }
+
+  function animate(now) {
+    ctx.fillStyle = "#080008";
+    ctx.fillRect(0, 0, W, H);
+    const elapsed = now - start;
+
+    rows.forEach(row => {
+      const alpha = Math.min(1, Math.max(0, (elapsed - row.delay) / 700));
+      if (!alpha) return;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font = row.font;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#ff3158";
+      ctx.shadowColor = "#ff1744";
+      ctx.shadowBlur = 8;
+      ctx.fillText(row.text, row.x, row.y + (1-alpha)*8);
+      ctx.restore();
+    });
+    requestAnimationFrame(animate);
+  }
+
+  window.addEventListener("resize", makeRows);
+  makeRows();
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>
